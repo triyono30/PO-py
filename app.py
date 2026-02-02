@@ -45,7 +45,10 @@ def dashboard_detail(jenis):
     elif jenis == "barang":
         cursor.execute("SELECT b.*, s.nama_supplier FROM barang b JOIN supplier s ON b.id_supplier = s.id_supplier ORDER BY b.nama_barang")
         data = cursor.fetchall()
-        return render_template("partials/barang.html", data=data)
+        # Ambil data suppliers untuk dropdown
+        cursor.execute("SELECT DISTINCT nama_supplier FROM supplier ORDER BY nama_supplier")
+        suppliers = cursor.fetchall()
+        return render_template("partials/barang.html", data=data, suppliers=suppliers)
 
     elif jenis == "po":
         cursor.execute("SELECT id_po, tanggal_order FROM purchase_order")
@@ -124,10 +127,15 @@ def barang_list():
     """)
 
     data = cur.fetchall()
+    
+    # Ambil data suppliers untuk dropdown
+    cur.execute("SELECT DISTINCT nama_supplier FROM supplier ORDER BY nama_supplier")
+    suppliers = cur.fetchall()
+    
     cur.close()
     db.close()
 
-    return render_template("partials/barang.html", data=data)
+    return render_template("partials/barang.html", data=data, suppliers=suppliers)
 
 
 # ================= DASHBOARD =================
