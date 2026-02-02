@@ -2,8 +2,8 @@ import mysql.connector
 
 def koneksi():
     return mysql.connector.connect(
-        host="localhost",
+        host="localhost",port="3301",
         user="root",
-        password="",
+        password="password",
         database="po_db"
     )

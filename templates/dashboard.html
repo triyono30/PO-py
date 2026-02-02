@@ -46,7 +46,30 @@ document.querySelectorAll(".card.clickable").forEach(card => {
     fetch(`/dashboard_detail/${type}`)
       .then(res => res.text())
       .then(html => {
-        document.getElementById("detail-content").innerHTML = html;
+        const container = document.getElementById("detail-content");
+        
+        // Pisahkan HTML dan script
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Ekstrak semua script
+        const scripts = tempDiv.querySelectorAll('script');
+        const scriptsToExecute = [];
+        scripts.forEach(script => {
+          scriptsToExecute.push(script.innerHTML);
+          script.remove(); // Hapus script dari HTML
+        });
+        
+        // Inject HTML tanpa script
+        container.innerHTML = tempDiv.innerHTML;
+        
+        // Eksekusi semua script
+        scriptsToExecute.forEach(scriptCode => {
+          const newScript = document.createElement('script');
+          newScript.textContent = scriptCode;
+          document.body.appendChild(newScript);
+          document.body.removeChild(newScript);
+        });
       })
       .catch(() => {
         document.getElementById("detail-content").innerHTML =

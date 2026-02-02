@@ -186,71 +186,153 @@
 </div>
 
 <script>
-// Filter & search
-const searchInput = document.getElementById("searchInput");
-const supplierFilter = document.getElementById("supplierFilter");
-const cardContainer = document.getElementById("cardContainer");
+// Filter & search - fungsi yang bekerja baik saat page load maupun AJAX inject
+(function initBarangScript() {
+  const searchInput = document.getElementById("searchInput");
+  const supplierFilter = document.getElementById("supplierFilter");
+  const cardContainer = document.getElementById("cardContainer");
+  
+  // Jika elemen belum ada, coba lagi setelah DOM ready (untuk AJAX inject)
+  if (!searchInput || !supplierFilter) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initBarangScript);
+    } else {
+      setTimeout(initBarangScript, 100);
+    }
+    return;
+  }
 
-function filterCards() {
-  const val = searchInput.value.toLowerCase();
-  const supplierVal = supplierFilter.value.toLowerCase();
-  cardContainer.querySelectorAll(".card").forEach(card => {
-    const nama = card.dataset.nama;
-    const supplier = card.dataset.supplier;
-    card.style.display = (nama.includes(val) && (supplierVal === "" || supplier === supplierVal)) ? "block" : "none";
-  });
-}
-searchInput.addEventListener("input", filterCards);
-supplierFilter.addEventListener("change", filterCards);
+  // Fungsi untuk filter cards
+  function filterCards() {
+    if (!cardContainer) return; // Pastikan cardContainer ada
+    
+    const val = searchInput.value.toLowerCase().trim();
+    const supplierVal = supplierFilter.value.toLowerCase().trim();
+    
+    const cards = cardContainer.querySelectorAll(".card");
+    let hasVisible = false;
+    
+    cards.forEach(card => {
+      const nama = card.dataset.nama || "";
+      const supplier = card.dataset.supplier || "";
+      
+      const matchSearch = nama.includes(val);
+      const matchSupplier = supplierVal === "" || supplier === supplierVal;
+      
+      if (matchSearch && matchSupplier) {
+        card.style.display = "block";
+        hasVisible = true;
+      } else {
+        card.style.display = "none";
+      }
+    });
+    
+    // Tampilkan pesan jika tidak ada hasil
+    let emptyMsg = cardContainer.querySelector(".empty-search");
+    if (!hasVisible && cards.length > 0) {
+      if (!emptyMsg) {
+        emptyMsg = document.createElement("div");
+        emptyMsg.className = "empty-search";
+        emptyMsg.style.cssText = "grid-column: 1/-1; text-align:center; color:#888; padding:20px;";
+        emptyMsg.textContent = "❌ Tidak ada barang yang ditemukan";
+        cardContainer.appendChild(emptyMsg);
+      }
+    } else if (emptyMsg) {
+      emptyMsg.remove();
+    }
+  }
 
-// Form detail
-const formOverlay = document.getElementById("formOverlay");
-const formTitle = document.getElementById("formTitle");
-const formId = document.getElementById("formId");
-const formNama = document.getElementById("formNama");
-const formStok = document.getElementById("formStok");
-const formSpek = document.getElementById("formSpek");
-const formSupplier = document.getElementById("formSupplier");
-const formSave = document.getElementById("formSave");
-const formCancel = document.getElementById("formCancel");
+  // Event listeners
+  if (searchInput) {
+    searchInput.addEventListener("input", filterCards);
+    searchInput.addEventListener("keyup", filterCards);
+  }
+  
+  if (supplierFilter) {
+    supplierFilter.addEventListener("change", filterCards);
+  }
+  
+  // Jalankan filter awal jika ada value
+  if (searchInput && searchInput.value) {
+    filterCards();
+  }
 
-cardContainer.querySelectorAll(".btn-detail").forEach(btn=>{
-  btn.addEventListener("click", e=>{
-    e.stopPropagation();
-    const card = e.target.closest(".card");
-    formTitle.innerText = card.querySelector("h3").innerText;
-    formId.value = card.dataset.id;
-    formNama.value = card.querySelector("h3").innerText;
-    formStok.value = card.dataset.stok;
-    formSpek.value = card.dataset.spek;
-    formSupplier.value = card.dataset.supplier;
-    formOverlay.style.display = "flex";
-  });
-});
+  // Form detail
+  const formOverlay = document.getElementById("formOverlay");
+  const formTitle = document.getElementById("formTitle");
+  const formId = document.getElementById("formId");
+  const formNama = document.getElementById("formNama");
+  const formStok = document.getElementById("formStok");
+  const formSpek = document.getElementById("formSpek");
+  const formSupplier = document.getElementById("formSupplier");
+  const formSave = document.getElementById("formSave");
+  const formCancel = document.getElementById("formCancel");
 
-formCancel.addEventListener("click", ()=> formOverlay.style.display="none");
-formOverlay.addEventListener("click", e => { if(e.target===formOverlay) formOverlay.style.display="none"; });
+  // Event listener untuk tombol detail menggunakan event delegation
+  if (cardContainer) {
+    cardContainer.addEventListener("click", function(e) {
+      if (e.target.classList.contains("btn-detail")) {
+        e.stopPropagation();
+        const card = e.target.closest(".card");
+        if (!card) return;
+        
+        formTitle.innerText = card.querySelector("h3").innerText;
+        formId.value = card.dataset.id;
+        formNama.value = card.querySelector("h3").innerText;
+        formStok.value = card.dataset.stok;
+        formSpek.value = card.dataset.spek;
+        formSupplier.value = card.dataset.supplier;
+        formOverlay.style.display = "flex";
+      }
+    });
+  }
 
-// Save (update card UI, bisa tambahkan AJAX nanti)
-formSave.addEventListener("click", ()=>{
-  const id = formId.value;
-  const nama = formNama.value;
-  const stok = formStok.value;
-  const spek = formSpek.value;
-  const supplier = formSupplier.value;
+  if (formCancel) {
+    formCancel.addEventListener("click", () => formOverlay.style.display = "none");
+  }
+  
+  if (formOverlay) {
+    formOverlay.addEventListener("click", e => { 
+      if(e.target === formOverlay) formOverlay.style.display = "none"; 
+    });
+  }
 
-  const card = cardContainer.querySelector(`.card[data-id="${id}"]`);
-  if(!card) return;
-  card.querySelector("h3").innerText = nama;
-  card.querySelector("p").innerHTML = `Stok: <span class="${stok<5?'low-stock':''}">${stok}</span>`;
-  card.querySelector(".badge").innerText = supplier;
-  card.dataset.nama = nama.toLowerCase();
-  card.dataset.stok = stok;
-  card.dataset.spek = spek;
-  card.dataset.supplier = supplier.toLowerCase();
+  // Save (update card UI, bisa tambahkan AJAX nanti)
+  if (formSave) {
+    formSave.addEventListener("click", () => {
+      const id = formId.value;
+      const nama = formNama.value;
+      const stok = formStok.value;
+      const spek = formSpek.value;
+      const supplier = formSupplier.value;
 
-  formOverlay.style.display = "none";
-});
+      if (!cardContainer) return;
+      const card = cardContainer.querySelector(`.card[data-id="${id}"]`);
+      if(!card) return;
+      
+      card.querySelector("h3").innerText = nama;
+      const stokElement = card.querySelectorAll("p")[0];
+      if (stokElement) {
+        stokElement.innerHTML = `Stok: <span class="${stok<5?'low-stock':''}">${stok}</span>`;
+      }
+      const badgeElement = card.querySelector(".badge");
+      if (badgeElement) {
+        badgeElement.innerText = supplier;
+      }
+      card.dataset.nama = nama.toLowerCase();
+      card.dataset.stok = stok;
+      card.dataset.spek = spek;
+      card.dataset.supplier = supplier.toLowerCase();
+
+      formOverlay.style.display = "none";
+      
+      // Trigger filter ulang setelah update
+      if (searchInput && supplierFilter) {
+        filterCards();
+      }
+    });
+  }
+})();
 </script>
 
 {% endblock %}
