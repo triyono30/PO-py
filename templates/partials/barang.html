@@ -1,337 +1,271 @@
-
 {% block content %}
 
 <style>
-/* Container & grid */
-.search-container {
-  margin: 16px 0;
-  display: flex;
-  gap: 10px;
-}
-.search-container input,
-.search-container select {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  flex:1;
-  font-size: 14px;
+.table-wrapper {
+  background:#fff;
+  padding:16px;
+  border-radius:10px;
+  box-shadow:0 4px 12px rgba(0,0,0,.08);
 }
 
-/* Card grid */
-.card-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill,minmax(250px,1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
-/* Card styling */
-.card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.08);
-  padding: 16px;
-  cursor: pointer;
-  transition: transform .2s;
-}
-
-.card:hover {
-  transform: translateY(-3px);
-}
-
-.card h3 {
-  margin:0 0 8px;
-  font-size:16px;
-  color:#2c3e50;
-}
-
-.card p {
-  margin:4px 0;
+.table-barang {
+  width:100%;
+  border-collapse:collapse;
   font-size:14px;
-  color:#555;
 }
 
-.badge {
-  background:#3498db;
+.table-barang th {
+  background:#2c3e50;
   color:#fff;
-  padding:2px 6px;
-  border-radius:4px;
-  font-size:12px;
+  padding:10px;
 }
 
-.low-stock {
+.table-barang td {
+  padding:10px;
+  border-bottom:1px solid #eee;
+}
+
+.table-barang tr:hover {
+  background:#f4f6f8;
+}
+
+/* ===== STATUS WARNA ===== */
+.supplier-nonaktif {
+  background:#f2f2f2 !important;
+  color:#999;
+}
+
+.supplier-nonaktif .badge {
+  background:#bdbdbd;
+}
+
+.stok-habis {
   color:#e74c3c;
   font-weight:bold;
 }
 
-.empty {
-  text-align:center;
-  color:#888;
-  padding:20px;
+.stok-warning {
+  color:#f39c12;
+  font-weight:bold;
 }
 
-/* Form detail overlay */
+/* badge */
+.badge {
+  background:#3498db;
+  color:#fff;
+  padding:3px 8px;
+  border-radius:4px;
+  font-size:12px;
+}
+
+.empty {
+  text-align:center;
+  padding:20px;
+  color:#888;
+}
+
+/* filter */
+.filter-bar {
+  display:flex;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+.filter-bar input,
+.filter-bar select {
+  padding:8px 12px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  font-size:14px;
+}
+
+/* modal */
 .form-overlay {
-  position: fixed;
-  top:0; left:0; right:0; bottom:0;
-  background: rgba(0,0,0,0.5);
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);
   display:none;
-  justify-content:center;
   align-items:center;
-  z-index: 9999;
+  justify-content:center;
+  z-index:9999;
 }
 
 .form-detail {
   background:#fff;
   padding:20px;
   border-radius:10px;
-  width:360px;
-  max-width:90%;
-  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  width:380px;
 }
 
-.form-detail h4 { margin-top:0; color:#2c3e50; margin-bottom:10px; }
-
 .form-detail label {
-  font-size:14px;
   margin-top:10px;
   display:block;
-  color:#2c3e50;
+  font-size:14px;
 }
 
 .form-detail input,
-.form-detail textarea,
-.form-detail select {
-  width:100%;
-  padding:8px 10px;
-  font-size:14px;
-  border:1px solid #ccc;
-  border-radius:6px;
+.form-detail textarea {
+  width:95%;
+  padding:8px;
   margin-top:4px;
-  box-sizing:border-box;
+  border-radius:6px;
+  border:1px solid #ccc;
 }
 
-.form-detail textarea { resize:none; min-height:60px; }
+.form-detail input[readonly],
+.form-detail textarea[readonly] {
+  background:#f5f6f7;
+}
 
-.form-detail button {
-  margin-top:12px;
-  padding:8px 12px;
+.cancel-btn {
+  background:#e74c3c;
+  color:#fff;
   border:none;
+  padding:8px 14px;
   border-radius:6px;
   cursor:pointer;
 }
-
-.save-btn { background:#2ecc71; color:#fff; }
-.cancel-btn { background:#e74c3c; color:#fff; margin-left:8px; }
+.form-detail input[readonly],
+.form-detail textarea[readonly],
+.form-detail select:disabled {
+  background: #f5f6f7;
+  color: #555;
+  cursor: not-allowed;
+}
 </style>
 
 <h2>📦 Data Barang</h2>
 
-<div class="search-container">
+<div class="filter-bar">
   <select id="supplierFilter">
     <option value="">Semua Supplier</option>
     {% for s in suppliers %}
       <option value="{{ s.nama_supplier }}">{{ s.nama_supplier }}</option>
     {% endfor %}
   </select>
+
   <input type="text" id="searchInput" placeholder="Cari barang...">
 </div>
 
+<div class="table-wrapper">
+<table class="table-barang">
+<thead>
+<tr>
+  <th>No</th>
+  <th>Nama Barang</th>
+  <th>Stok</th>
+  <th>Satuan</th>
+  <th>Supplier</th>
+  <th>Aksi</th>
+</tr>
+</thead>
+<tbody id="barangBody">
 {% if data %}
-<div class="card-container" id="cardContainer">
-  {% for b in data %}
-  <div class="card"
-       data-id="{{ b.id_barang }}"
-       data-nama="{{ b.nama_barang | lower }}"
-       data-supplier="{{ b.nama_supplier | lower }}"
-       data-stok="{{ b.stok }}"
-       data-spek="{{ b.spek or '-' }}">
-    <h3>{{ b.nama_barang }}</h3>
-    <p>Stok: <span class="{{ 'low-stock' if b.stok < 5 else '' }}">{{ b.stok }}</span></p>
-    <p>Supplier: <span class="badge">{{ b.nama_supplier }}</span></p>
-    <p><button class="btn-detail" style="margin-top:8px;">Detail</button></p>
-  </div>
-  {% endfor %}
-</div>
+{% for b in data %}
+<tr
+  class="row-barang 
+    {% if b.status_supplier == 0 %}supplier-nonaktif{% endif %}"
+  data-nama="{{ b.nama_barang | lower }}"
+  data-supplier="{{ b.nama_supplier | lower }}"
+  data-stok="{{ b.stok }}"
+  data-satuan="{{ b.satuan }}"
+  data-spek="{{ b.spek or '-' }}"
+>
+  <td>{{ loop.index }}</td>
+  <td>{{ b.nama_barang }}</td>
+<td class="
+  {% if b.stok == 0 %}stok-habis
+  {% elif b.stok < 10 %}stok-warning
+  {% endif %}
+">
+  {{ b.stok }}
+</td>
+
+<td>
+  <span class="badge">{{ b.satuan }}</span>
+</td>
+  <td>
+    <span class="badge">{{ b.nama_supplier }}</span>
+    {% if b.status_supplier == 0 %}
+      <small>(Non Aktif)</small>
+    {% endif %}
+  </td>
+  <td>
+    <button class="btn-detail">Detail</button>
+  </td>
+</tr>
+{% endfor %}
 {% else %}
-<div class="empty">❌ Data barang belum ada</div>
+<tr>
+  <td colspan="5" class="empty">❌ Data barang belum ada</td>
+</tr>
 {% endif %}
+</tbody>
+</table>
+</div>
 
-<!-- Form overlay -->
+<!-- MODAL DETAIL -->
 <div class="form-overlay" id="formOverlay">
-  <div class="form-detail">
-    <h4 id="formTitle">Detail Barang</h4>
-    <input type="hidden" id="formId">
-    <label>Nama Barang</label>
-    <input type="text" id="formNama">
+<div class="form-detail">
+  <h4>Detail Barang</h4>
 
-    <label>Stok</label>
-    <input type="number" id="formStok" min="0">
+  <label>Nama Barang</label>
+  <input id="formNama" readonly>
 
-    <label>Spesifikasi</label>
-    <textarea id="formSpek"></textarea>
+  <label>Stok</label>
+  <input id="formStok" readonly>
+ 
+  <label>Satuan</label>
+  <input id="formSatuan" readonly>
 
-    <label>Supplier</label>
-    <select id="formSupplier">
-      {% for s in suppliers %}
-      <option value="{{ s.nama_supplier }}">{{ s.nama_supplier }}</option>
-      {% endfor %}
-    </select>
+  <label>Spesifikasi</label>
+  <textarea id="formSpek" readonly></textarea>
 
-    <div style="margin-top:12px; text-align:right;">
-      <button class="save-btn" id="formSave">Simpan</button>
-      <button class="cancel-btn" id="formCancel">Batal</button>
-    </div>
+  <label>Supplier</label>
+  <input id="formSupplier" readonly>
+
+  <div style="text-align:right;margin-top:12px;">
+    <button class="cancel-btn" id="formCancel">Tutup</button>
   </div>
+</div>
 </div>
 
 <script>
-// Filter & search - fungsi yang bekerja baik saat page load maupun AJAX inject
-(function initBarangScript() {
-  const searchInput = document.getElementById("searchInput");
-  const supplierFilter = document.getElementById("supplierFilter");
-  const cardContainer = document.getElementById("cardContainer");
-  
-  // Jika elemen belum ada, coba lagi setelah DOM ready (untuk AJAX inject)
-  if (!searchInput || !supplierFilter) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initBarangScript);
-    } else {
-      setTimeout(initBarangScript, 100);
-    }
-    return;
-  }
+(function(){
+  const search = document.getElementById("searchInput");
+  const filter = document.getElementById("supplierFilter");
+  const rows = document.querySelectorAll(".row-barang");
+  const overlay = document.getElementById("formOverlay");
 
-  // Fungsi untuk filter cards
-  function filterCards() {
-    if (!cardContainer) return; // Pastikan cardContainer ada
-    
-    const val = searchInput.value.toLowerCase().trim();
-    const supplierVal = supplierFilter.value.toLowerCase().trim();
-    
-    const cards = cardContainer.querySelectorAll(".card");
-    let hasVisible = false;
-    
-    cards.forEach(card => {
-      const nama = card.dataset.nama || "";
-      const supplier = card.dataset.supplier || "";
-      
-      const matchSearch = nama.includes(val);
-      const matchSupplier = supplierVal === "" || supplier === supplierVal;
-      
-      if (matchSearch && matchSupplier) {
-        card.style.display = "block";
-        hasVisible = true;
-      } else {
-        card.style.display = "none";
-      }
-    });
-    
-    // Tampilkan pesan jika tidak ada hasil
-    let emptyMsg = cardContainer.querySelector(".empty-search");
-    if (!hasVisible && cards.length > 0) {
-      if (!emptyMsg) {
-        emptyMsg = document.createElement("div");
-        emptyMsg.className = "empty-search";
-        emptyMsg.style.cssText = "grid-column: 1/-1; text-align:center; color:#888; padding:20px;";
-        emptyMsg.textContent = "❌ Tidak ada barang yang ditemukan";
-        cardContainer.appendChild(emptyMsg);
-      }
-    } else if (emptyMsg) {
-      emptyMsg.remove();
-    }
-  }
+  function applyFilter(){
+    const s = search.value.toLowerCase();
+    const f = filter.value.toLowerCase();
 
-  // Event listeners
-  if (searchInput) {
-    searchInput.addEventListener("input", filterCards);
-    searchInput.addEventListener("keyup", filterCards);
-  }
-  
-  if (supplierFilter) {
-    supplierFilter.addEventListener("change", filterCards);
-  }
-  
-  // Jalankan filter awal jika ada value
-  if (searchInput && searchInput.value) {
-    filterCards();
-  }
-
-  // Form detail
-  const formOverlay = document.getElementById("formOverlay");
-  const formTitle = document.getElementById("formTitle");
-  const formId = document.getElementById("formId");
-  const formNama = document.getElementById("formNama");
-  const formStok = document.getElementById("formStok");
-  const formSpek = document.getElementById("formSpek");
-  const formSupplier = document.getElementById("formSupplier");
-  const formSave = document.getElementById("formSave");
-  const formCancel = document.getElementById("formCancel");
-
-  // Event listener untuk tombol detail menggunakan event delegation
-  if (cardContainer) {
-    cardContainer.addEventListener("click", function(e) {
-      if (e.target.classList.contains("btn-detail")) {
-        e.stopPropagation();
-        const card = e.target.closest(".card");
-        if (!card) return;
-        
-        formTitle.innerText = card.querySelector("h3").innerText;
-        formId.value = card.dataset.id;
-        formNama.value = card.querySelector("h3").innerText;
-        formStok.value = card.dataset.stok;
-        formSpek.value = card.dataset.spek;
-        formSupplier.value = card.dataset.supplier;
-        formOverlay.style.display = "flex";
-      }
+    rows.forEach(r=>{
+      const ok =
+        r.dataset.nama.includes(s) &&
+        (f==="" || r.dataset.supplier===f);
+      r.style.display = ok ? "" : "none";
     });
   }
 
-  if (formCancel) {
-    formCancel.addEventListener("click", () => formOverlay.style.display = "none");
-  }
-  
-  if (formOverlay) {
-    formOverlay.addEventListener("click", e => { 
-      if(e.target === formOverlay) formOverlay.style.display = "none"; 
-    });
-  }
+  search.oninput = applyFilter;
+  filter.onchange = applyFilter;
 
-  // Save (update card UI, bisa tambahkan AJAX nanti)
-  if (formSave) {
-    formSave.addEventListener("click", () => {
-      const id = formId.value;
-      const nama = formNama.value;
-      const stok = formStok.value;
-      const spek = formSpek.value;
-      const supplier = formSupplier.value;
+  document.querySelectorAll(".btn-detail").forEach(btn=>{
+    btn.onclick = ()=>{
+      const r = btn.closest("tr");
+      formNama.value = r.children[1].innerText;
+      formStok.value = r.dataset.stok;
+      formSatuan.value = r.dataset.satuan;
+      formSpek.value = r.dataset.spek;
+      formSupplier.value = r.children[4].innerText;
+      overlay.style.display="flex";
+    };
+  });
 
-      if (!cardContainer) return;
-      const card = cardContainer.querySelector(`.card[data-id="${id}"]`);
-      if(!card) return;
-      
-      card.querySelector("h3").innerText = nama;
-      const stokElement = card.querySelectorAll("p")[0];
-      if (stokElement) {
-        stokElement.innerHTML = `Stok: <span class="${stok<5?'low-stock':''}">${stok}</span>`;
-      }
-      const badgeElement = card.querySelector(".badge");
-      if (badgeElement) {
-        badgeElement.innerText = supplier;
-      }
-      card.dataset.nama = nama.toLowerCase();
-      card.dataset.stok = stok;
-      card.dataset.spek = spek;
-      card.dataset.supplier = supplier.toLowerCase();
-
-      formOverlay.style.display = "none";
-      
-      // Trigger filter ulang setelah update
-      if (searchInput && supplierFilter) {
-        filterCards();
-      }
-    });
-  }
+  formCancel.onclick = ()=> overlay.style.display="none";
+  overlay.onclick = e => e.target===overlay && (overlay.style.display="none");
 })();
 </script>
 
