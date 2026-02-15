@@ -1,0 +1,100 @@
+<style>.po-header {
+  display: flex;
+  justify-content: space-between; /* kiri-kanan */
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.po-status-big {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+/* WARNA STATUS */
+
+
+/*--------------------------*/
+.po-status-DRAF {
+  background:#f1c40f33;
+  color:#f39c12;
+}
+
+.po-status-AWAITING_APPROVAL {
+  background:#3498db33;
+  color:#2980b9;
+}
+
+.po-status-APPROVED {
+  background:#2ecc7133;
+  color:#27ae60;
+}
+
+.po-status-ORDER {
+  background:#9b59b633;
+  color:#8e44ad;
+}
+
+.po-status-PROSES_SUPPLIER {
+  background:#e67e2233;
+  color:#d35400;
+}
+
+.po-status-KIRIM {
+  background:#1abc9c33;
+  color:#16a085;
+}
+
+.po-status-SELESAI {
+  background:#27ae6033;
+  color:#229954;
+}
+
+.po-status-big,
+.po-status-big * {
+  text-decoration: none !important;
+}
+.po-status-big {
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+</style>
+<h3>📄 Detail Purchase Order</h3>
+<div class="po-header">
+  <div>
+  <b>No PO:</b> {{ po.id_po }}
+  </div>
+  <!-- STATUS BESAR -->
+ <div class="po-status-big po-status-{{ po.status_order }}">
+  {{ po.status_order.replace("_", " ").title() }}
+</div>
+</div>
+<p><b>Supplier:</b> {{ po.nama_supplier }}</p>
+<p><b>Jenis Pembayaran:</b> {{ po.jenis_pembayaran }}</p>
+<p><b>Tanggal Order:</b> {{ po.tanggal_order }}</p>
+<p><b>Tanggal Kirim:</b> {{ po.tanggal_kirim }}</p>
+<p><b>Pemesan:</b> {{ po.nama_pemesan }}</p>
+<p><b>Alamat Kirim:</b><br>{{ po.alamat_kirim }}</p>
+
+<hr>
+
+<table width="100%" border="1" cellpadding="6" style="border-collapse:collapse;">
+  <tr>
+    <th>Barang</th>
+    <th>Qty</th>
+    <th>Harga</th>
+    <th>Subtotal</th>
+    <th>Keterangan</th>
+  </tr>
+  {% for d in detail %}
+  <tr>
+    <td>{{ d.nama_barang }}</td>
+    <td>{{ d.qty }} {{ d.satuan }}</td>
+    <td>Rp {{ "{:,.0f}".format(d.harga) }}</td>
+    <td>Rp {{ "{:,.0f}".format(d.subtotal) }}</td>
+    <td>{{ d.ket or "-" }}</td>
+  </tr>
+  {% endfor %}
+</table>
