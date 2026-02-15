@@ -1,0 +1,296 @@
+<style>
+.table-wrapper {
+  background: #fff;
+  padding: 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+.table-po {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table-po th {
+  background: #2c3e50;
+  color: white;
+  padding: 10px;
+}
+.table-po td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+.table-po tr:hover {
+  background: #f4f6f8;
+}
+.badge-po {
+  background: #3498db;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.status-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: bold;
+  display: inline-block;
+}
+
+.status-DRAF {
+  background:#f1c40f33;
+  color:#f39c12;
+}
+
+.status-AWAITING_APPROVAL {
+  background:#3498db33;
+  color:#2980b9;
+}
+
+.status-APPROVED {
+  background:#2ecc7133;
+  color:#27ae60;
+}
+
+.status-ORDER {
+  background:#9b59b633;
+  color:#8e44ad;
+}
+
+.status-PROSES_SUPPLIER {
+  background:#e67e2233;
+  color:#d35400;
+}
+
+.status-KIRIM {
+  background:#1abc9c33;
+  color:#16a085;
+}
+
+.status-SELESAI {
+  background:#27ae6033;
+  color:#229954;
+}
+
+
+.po-modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,.4);
+}
+
+.po-modal-content {
+  background: #fff;
+  width: 90%;
+  max-width: 720px;
+  margin: 6% auto;
+  padding: 20px;
+  border-radius: 10px;
+  animation: fadeIn .2s ease;
+}
+
+.po-close {
+  float: right;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.po-link {
+  cursor: pointer;
+}
+.po-link:hover {
+  opacity: .8;
+}
+
+@keyframes fadeIn {
+  from {transform:scale(.95); opacity:0}
+  to {transform:scale(1); opacity:1}
+}
+.sisa-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 🟢 masih aman */
+.sisa-aman {
+  background: #2ecc7133;
+  color: #27ae60;
+}
+
+/* 🟡 hari ini */
+.sisa-warning {
+  background: #f1c40f33;
+  color: #f39c12;
+}
+
+/* 🔴 terlambat */
+.sisa-danger {
+  background: #e74c3c33;
+  color: #c0392b;
+}
+
+/* abu-abu */
+.sisa-none {
+  background: #ecf0f1;
+  color: #7f8c8d;
+}
+.sisa-selesai {
+  background: #bdc3c733;
+  color: #2c3e50;
+}
+</style>
+
+<h2>📑 Rekap Purchase Order</h2>
+
+<!-- Ringkasan total -->
+<div style="margin-bottom:15px; padding:10px; border:1px solid #ddd; border-radius:6px; max-width:420px; background:#fff;">
+  <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+    <span><strong>Jumlah PO</strong></span>
+    <span>{{ total_po }}</span>
+  </div>
+  <div style="display:flex; justify-content:space-between;">
+    <span><strong>Total Nilai PO</strong></span>
+    <span>Rp {{ "{:,.0f}".format(total_nilai) }}</span>
+  </div>
+</div>
+<div style="margin-bottom:12px;">
+  <input
+    type="text"
+    id="searchPO"
+    placeholder="Cari PO (ID, supplier, tanggal, status)..."
+    style="padding:8px 12px;width:100%;max-width:360px;border-radius:6px;border:1px solid #ccc;font-size:14px;"
+  >
+</div>
+<div class="table-wrapper">
+  <table class="table-po">
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>ID PO</th>
+        <th>Tanggal Order</th>
+        <th>Waktu Kirim</th>
+        <th>Supplier</th>
+        <th>Total</th>
+        <th>Status Terakhir</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if data %}
+        {% for p in data %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>
+          <span class="badge-po po-link" data-id="{{ p.id_po }}">
+            {{ p.id_po }}
+          </span>
+        </td>
+          <td>{{ p.tanggal_order }}</td>
+          <td>
+            <span class="sisa-pill {{ p.sisa_class }}">
+              {{ p.sisa_hari }}
+            </span>
+          </td>
+          <td>{{ p.supplier }}</td>
+          <td>Rp {{ "{:,.0f}".format(p.total) }}</td>
+          {% set st = (p.status_terakhir or "-") %}
+          <td>
+           
+<span class="status-pill status-{{ st }}">
+  {{ st.replace("_"," ").title() }}
+</span>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="6" class="empty">Belum ada data PO.</td>
+        </tr>
+      {% endif %}
+
+
+    </tbody>
+  </table>
+</div>
+
+      <div id="poModal" class="po-modal">
+  <div class="po-modal-content">
+    <span class="po-close">&times;</span>
+    <div id="poModalBody">
+      <p style="text-align:center;">⏳ Memuat data...</p>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function initPOSearch() {
+  const input = document.getElementById("searchPO");
+  const tbody = document.querySelector(".table-po tbody");
+
+  if (!input || !tbody) return;
+
+  input.addEventListener("input", function () {
+    const keyword = this.value.toLowerCase().trim();
+    const rows = tbody.querySelectorAll("tr");
+    let hasVisible = false;
+
+    rows.forEach(row => {
+      // abaikan baris "data kosong"
+      if (row.querySelector(".empty")) return;
+
+      const text = row.innerText.toLowerCase();
+      const match = text.includes(keyword);
+
+      row.style.display = match ? "" : "none";
+      if (match) hasVisible = true;
+    });
+
+    // pesan jika tidak ada hasil
+    let emptyRow = tbody.querySelector(".empty-search");
+    if (!hasVisible && rows.length > 0) {
+      if (!emptyRow) {
+        emptyRow = document.createElement("tr");
+        emptyRow.className = "empty-search";
+        emptyRow.innerHTML =
+          `<td colspan="6" class="empty">❌ Data PO tidak ditemukan</td>`;
+        tbody.appendChild(emptyRow);
+      }
+    } else if (emptyRow) {
+      emptyRow.remove();
+    }
+  });
+})();
+</script>
+<script>
+document.addEventListener("click", function (e) {
+  const link = e.target.closest(".po-link");
+  if (!link) return;
+
+  const id = link.dataset.id;
+  const modal = document.getElementById("poModal");
+  const modalBody = document.getElementById("poModalBody");
+
+  modal.style.display = "block";
+  modalBody.innerHTML = "<p style='text-align:center'>⏳ Memuat detail...</p>";
+
+  fetch(`/po_detail_ajax/${id}`)
+    .then(res => res.text())
+    .then(html => modalBody.innerHTML = html)
+    .catch(() => modalBody.innerHTML = "❌ Gagal memuat data");
+});
+
+// tutup modal
+document.addEventListener("click", function (e) {
+  if (e.target.classList.contains("po-close") ||
+      e.target.id === "poModal") {
+    document.getElementById("poModal").style.display = "none";
+  }
+});
+</script>
