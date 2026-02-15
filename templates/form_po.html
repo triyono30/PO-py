@@ -27,32 +27,58 @@
     </div>
 
     <!-- Kanan -->
-    <div style="flex:1;">
-      <label>Supplier</label>
-      <select name="id_supplier" id="supplier" required>
-        <option value="">Pilih Supplier</option>
-        {% for s in supplier %}
-        <option value="{{ s[0] }}">{{ s[1] }}</option>
-        {% endfor %}
-      </select>
-      
-      <label>Tanggal Kirim</label>
-      <input type="date" name="tanggal_kirim" id="tanggal_kirim" required>
-    </div>
+    <!-- Kanan -->
+<div style="flex:1;">
+  <label>Supplier</label>
+  <select name="id_supplier" id="supplier" required>
+    <option value="">Pilih Supplier</option>
+    {% for s in supplier %}
+      <option value="{{ s[0] }}">{{ s[1] }}</option>
+    {% endfor %}
+  </select>
+  
+  <label>Tanggal Kirim</label>
+  <input type="date" name="tanggal_kirim" id="tanggal_kirim" required>
+
+  <label>Pembayaran</label>
+  <select name="jenis_pembayaran" id="jenis_pembayaran" required>
+    <option value="">Pilih Pembayaran</option>
+    <option value="TUNAI">Tunai</option>
+    <option value="TRANSFER">Transfer</option>
+    <option value="Tempo 7 Hari">Tempo 7 Hari</option>
+    <option value="Tempo 14 Hari">Tempo 14 Hari</option>
+    <option value="Tempo 30 Hari">Tempo 30 Hari</option>
+  </select>
+</div>
   </div>
 
-  <h3>Detail Barang</h3>
+  <h3>Detail Barang di Pilih</h3>
 
 <table border="1" cellpadding="6" id="table-barang" style="width:100%;">
-  <tr>
-    <th style="width:40%;">Barang</th>
-    <th style="width:10%;">Qty</th>
-    <th style="width:15%;">Harga</th>
-    <th style="width:15%;">Subtotal</th>
-    <th style="width:20%;">Aksi</th>
-  </tr>
+<tr>
+  <th style="width:30%;">Barang Dipilih</th>
+  <th style="width:10%;">Qty</th>
+  <th style="width:15%;">Harga</th>
+  <th style="width:15%;">Subtotal</th>
+  <th style="width:20%;">Note</th>
+  <th style="width:10%;">Aksi</th>
+</tr>
 </table>
 
+<!-- Ringkasan (muncul & update saat barang ditambah) -->
+<table style="width:100%; margin-top:10px; border-collapse:collapse;">
+  <tr>
+    <td style="text-align:right; padding:4px 8px; width:65%;"><strong>Total:</strong></td>
+    <td style="text-align:right; padding:4px 8px; width:15%;"><span id="grand_total">0</span></td>
+    <td style="width:20%;"></td>
+    
+  </tr>
+</table>
+<table border="1" cellpadding="6" id="table-barang" style="width:100%;">
+<tr>
+<th style="width:35%;">Barang</th> <th style="width:10%;">Qty</th> <th style="width:15%;">Harga</th> <th style="width:15%;">Subtotal</th> <th style="width:15%;">Aksi</th>
+</tr>
+</table>
 <!-- Form input barang -->
 <div style="display:flex; gap:10px; margin-top:5px; align-items:flex-start; flex-wrap:wrap;">
   <div style="flex:2.1; display:flex; flex-direction:column;">
@@ -60,13 +86,32 @@
       <option value="">Pilih Barang</option>
     </select>
     <!-- Stok & spesifikasi -->
+
+       <div style="display: flex; gap: 15px; align-items: flex-start;">
     <textarea id="stok_spek" readonly
-        style="margin-top:5px; width:100%; min-height:40px; resize:none; padding:4px; box-sizing:border-box;"
+        style="margin-top:5px; width:100%; min-height:100px; resize:none; padding:4px; box-sizing:border-box;"
         placeholder="Stok dan spesifikasi barang akan muncul di sini"></textarea>
 
-        
+
+  <textarea id="note" placeholder="Catatan untuk barang ini" 
+    style="margin-top:5px; width:100%; min-height:100px; resize:none; padding:4px; box-sizing:border-box;"></textarea>  
+</div>
+      
   </div>
-  <input type="number" id="qty" value="1" min="1" style="flex:0.5;">
+  
+ <div style="position:relative; flex:0.5;">
+  <input type="number" id="qty" value="1" min="1"
+         style="width:100%; padding-right:4px;">
+  <span id="qty_satuan" style="
+    position:absolute;
+    right:5px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#666;
+    font-size:13px;
+    pointer-events:none;
+  ">-</span>
+</div>
   <input type="number" id="harga" readonly style="flex:0.7;">
   <input type="number" id="subtotal" readonly style="flex:0.7;">
   <button type="button" id="add-barang" style="flex:1;">Tambah Barang</button>
@@ -77,6 +122,42 @@
   <br>
   <button type="submit">Simpan PO</button>
 </form>
+
+
+<!-- MODAL PREVIEW -->
+<div id="previewModal" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.4);
+  z-index:999;
+">
+  <div style="
+    background:#fff;
+    width:90%;
+    max-width:900px;
+    margin:5% auto;
+    padding:20px;
+    border-radius:10px;
+    max-height:85vh;
+    overflow:auto;
+  ">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2>📄 Preview Purchase Order</h2>
+      <span id="closePreview" style="cursor:pointer;font-size:22px;">✖</span>
+    </div>
+
+    <div id="previewContent"></div>
+
+    <hr>
+    <div style="text-align:right; margin-top:10px;">
+  <button type="button" id="btnBatal">❌ Tidak</button>
+<button type="button" id="btnLanjut">✅ Simpan</button>
+</div>
+  </div>
+</div>
+
+
 
 <script>
 const supplier = document.getElementById("supplier");
@@ -90,8 +171,55 @@ const idPoInput = document.getElementById("id_po");
 const alamat = document.getElementById("alamat_kirim");
 const alertDiv = document.getElementById("alert");
 const stokSpek = document.getElementById("stok_spek");
+const grandTotalEl = document.getElementById("grand_total");
 
 let barangList = [];
+
+function formatAngka(n){
+  const num = Number(n || 0);
+  return num.toLocaleString("id-ID");
+}
+
+function updateRingkasan(){
+  const grandSubtotal = barangList.reduce((acc, b) => acc + (Number(b.sub) || 0), 0);
+  // Jika belum ada pajak/diskon, total = subtotal
+  const total = grandSubtotal;
+  grandTotalEl.textContent = formatAngka(total);
+}
+
+function resetQty() {
+  qty.value = 1;                 // reset jumlah
+  document.getElementById("qty_satuan").innerText = "-"; // hapus satuan
+}
+
+function clearPOForm(){
+  // reset input form
+  document.getElementById("nama_pemesan").value = "";
+  alamat.value = "";
+  alamat.style.height = "auto";
+  document.getElementById("tanggal_kirim").value = "";
+
+  // reset supplier & barang
+  supplier.value = "";
+  supplier.dataset.lastValue = "";
+  idPoInput.value = "";
+  barang.innerHTML = "<option value=''>Pilih Barang</option>";
+  stokSpek.value = "";
+  
+
+  // reset input barang
+  barang.value = "";
+  harga.value = 0;
+  subtotal.value = 0;
+  addBtn.disabled = true;
+  resetQty();
+  
+  // reset tabel & list
+  barangList = [];
+  table.querySelectorAll("tr:not(:first-child)").forEach(tr => tr.remove());
+  updateRingkasan();
+}
+
 
 // Auto-resize textarea
 alamat.addEventListener("input", () => {
@@ -107,6 +235,7 @@ supplier.addEventListener('change', ()=>{
     const yyyy=d.getFullYear(); 
     const mm=String(d.getMonth()+1).padStart(2,'0');
     idPoInput.value = `PO-${yyyy}${mm}-${s}-XXXX`;
+    resetQty();
 });
 supplier.addEventListener("change", () => {
   if(barangList.length > 0){
@@ -123,7 +252,15 @@ supplier.addEventListener("change", () => {
       barang.innerHTML = "<option value=''>Pilih Barang</option>";
       data.barang.forEach(b => {
         // Tambahkan data stok & spesifikasi di data attributes
-        barang.innerHTML += `<option value="${b.id}" data-harga="${b.harga}" data-stok="${b.stok}" data-spek="${b.spek}">${b.nama}</option>`;
+      barang.innerHTML += `
+        <option 
+          value="${b.id}" 
+          data-harga="${b.harga}" 
+          data-stok="${b.stok}" 
+          data-spek="${b.spek}"
+          data-satuan="${b.satuan}">
+          ${b.nama}
+        </option>`;      
       });
     });
 });
@@ -138,25 +275,33 @@ function setQtyError(isError){
     }
 }
 // Update harga & subtotal
+
 function updateHarga() {
     const opt = barang.selectedOptions[0];
-  if (!opt) {
+  if (!opt|| !opt.value) {
     harga.value = 0;
     subtotal.value = 0;
     stokSpek.value = "";
     setQtyError(false);
     addBtn.disabled = true;
+    document.getElementById("qty_satuan").innerText = "-";
+    document.getElementById("note").value = "";
     return;
   }
 
   const h = parseFloat(opt.dataset.harga);
   const stok = parseInt(opt.dataset.stok);
   const q = parseInt(qty.value);
+  const satuan = opt.dataset.satuan || "-";
 
   harga.value = h;
   subtotal.value = q * h;
-  stokSpek.value = `Stok: ${stok}\nSpesifikasi:\n${opt.dataset.spek || "-"}`;
+document.getElementById("qty_satuan").innerText = satuan;
 
+stokSpek.value =
+  `Stok: ${stok} ${satuan}\n` +
+  `Satuan: ${satuan}\n` +
+  `Spesifikasi:\n${opt.dataset.spek || "-"}`;
   if (q > stok) {
         setQtyError(true);
         addBtn.disabled = true;
@@ -165,52 +310,67 @@ function updateHarga() {
         setQtyError(false);
         addBtn.disabled = false;
     }
-   
-
-  
-    harga.value = opt ? opt.dataset.harga || 0 : 0;
-    subtotal.value = qty.value * harga.value;
-    
-   // Tampilkan stok & spesifikasi
-    if(opt){
-        const stok = opt.dataset.stok || "-";
-        const spek = opt.dataset.spek || "-";
-        document.getElementById("stok_spek").value = `Stok: ${stok}\nSpesifikasi: ${spek}`;
-    } else {
-        document.getElementById("stok_spek").value = "";
-    }
 }
 barang.addEventListener("change", updateHarga);
 qty.addEventListener("input", updateHarga);
 
 // Tambah barang ke tabel
 addBtn.addEventListener("click", () => {
-    const id = barang.value;
-    const nama = barang.selectedOptions[0]?.text;
-    const h = parseFloat(harga.value);
-    const q = parseInt(qty.value);
-    const sub = parseFloat(subtotal.value);
+    const opt = barang.selectedOptions[0];
+    if (!opt) return showAlert("Pilih barang!", "error");
 
-    if(!id) return showAlert("Pilih barang!", "error");
-    if(barangList.some(b => b.id===id)) return showAlert("Barang sudah ditambahkan!", "error");
+    const id     = barang.value;
+    const nama   = opt.text;
+    const satuan = opt.dataset.satuan || "-";
+    const h      = parseFloat(harga.value);
+    const q      = parseInt(qty.value);
+    const sub    = h * q;
 
-    barangList.push({id,nama,h,q,sub});
+    if (barangList.some(b => b.id === id))
+        return showAlert("Barang sudah ditambahkan!", "error");
+const noteText = document.getElementById("note").value || "-";
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${nama}<input type="hidden" name="id_barang_list" value="${id}"></td>
-      <td>${q}<input type="hidden" name="qty_list" value="${q}"></td>
-      <td>${h}</td>
-      <td>${sub}</td>
-      <td><button type="button" class="hapus">Hapus</button></td>
-    `;
+barangList.push({ id, nama, h, q, sub, satuan, note: noteText });
+
+const tr = document.createElement("tr");
+tr.innerHTML = `
+  <td>
+    ${nama}
+    <input type="hidden" name="id_barang_list[]" value="${id}">
+  </td>
+  <td>
+    ${q} ${satuan}
+    <input type="hidden" name="qty_list[]" value="${q}">
+  </td>
+  <td>${formatAngka(h)}</td>
+  <td>${formatAngka(sub)}</td>
+  <td>
+    ${noteText}
+    <input type="hidden" name="note_list[]" value="${noteText}">
+  </td>
+  <td><button type="button" class="hapus">Hapus</button></td>
+`;
     table.appendChild(tr);
-    tr.querySelector(".hapus").addEventListener("click", ()=>{
-        barangList = barangList.filter(b=>b.id!==id);
+
+    tr.querySelector(".hapus").addEventListener("click", () => {
+        barangList = barangList.filter(b => b.id !== id);
         tr.remove();
+        updateRingkasan();
+        resetQty();
     });
 
-    barang.value=""; qty.value=1; harga.value=0; subtotal.value=0;
+
+    
+   // reset input
+      barang.value = "";
+      qty.value = 1;
+      harga.value = 0;
+      subtotal.value = 0;
+      stokSpek.value = "";
+      document.getElementById("note").value = ""; // <<< TAMBAHKAN INI
+      addBtn.disabled = true;
+
+    updateRingkasan();
 });
 
 // Show alert dinamis
@@ -224,37 +384,139 @@ function showAlert(msg, type="success"){
 }
 
 // Submit via AJAX
-document.getElementById("formPO").addEventListener("submit", e=>{
-    e.preventDefault();
+function simpanPO() {
+  const formData = new FormData();
 
-    if(barangList.length===0) return showAlert("Harap tambahkan minimal 1 barang!", "error");
+  formData.append("id_supplier", supplier.value);
+  formData.append("tanggal_kirim", tanggal_kirim.value);
+  formData.append("nama_pemesan", nama_pemesan.value);
+  formData.append("alamat_kirim", alamat.value);
+  formData.append("jenis_pembayaran", jenis_pembayaran.value);
+  formData.append("status", "DRAF");
 
-    const formData = new FormData();
-    formData.append("id_supplier", supplier.value);
-    formData.append("tanggal_kirim", document.getElementById("tanggal_kirim").value);
-    formData.append("nama_pemesan", document.getElementById("nama_pemesan").value);
-    formData.append("alamat_kirim", alamat.value);
+  barangList.forEach(b=>{
+    formData.append("id_barang_list", b.id);
+    formData.append("qty_list", b.q);
+    formData.append("note_list", b.note);
+  });
 
-    barangList.forEach(b=>{
-        formData.append("id_barang_list", b.id);
-        formData.append("qty_list", b.q);
-    });
-
-    fetch("/simpan_po_ajax", {method:"POST", body:formData})
-      .then(res=>res.json())
-      .then(data=>{
-        if(data.status==="error") showAlert(data.message, "error");
-        else{
-            showAlert("PO berhasil disimpan!","success");
-            barangList=[]; 
-            table.querySelectorAll("tr:not(:first-child)").forEach(tr=>tr.remove());
-        }
-      });
+  fetch("/simpan_po_ajax", {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+  if (data.status === "error") {
+    showAlert(data.message, "error");
+  } else {
+    showAlert("✅ PO berhasil disimpan!", "success");
+    clearPOForm();
+    resetQty();
+  }
+})
+.catch(() => {
+  showAlert("Gagal menyimpan PO", "error");
 });
+}
 // Load barang berdasarkan supplier
 
 
 // Update harga, subtotal, stok & spesifikasi
 
+</script>
+<script>
+const form = document.getElementById("formPO");
+const previewModal   = document.getElementById("previewModal");
+const previewContent = document.getElementById("previewContent");
+const btnBatal  = document.getElementById("btnBatal");
+const btnLanjut = document.getElementById("btnLanjut");
+
+let lanjutSimpan = false; // FLAG PENTING
+
+form.addEventListener("submit", e => {
+  // kalau belum konfirmasi → tampilkan preview
+     e.preventDefault();
+
+    if (barangList.length === 0) {
+      showAlert("Harap tambahkan minimal 1 barang!", "error");
+      return;
+    }
+
+    tampilkanPreview();
+    previewModal.style.display = "block";
+  
+});
+
+// ================= PREVIEW =================
+function tampilkanPreview(){
+  const supplierText = supplier.selectedOptions[0]?.text || "-";
+
+  let html = `
+    <p><b>No PO:</b> ${idPoInput.value}</p>
+    <p><b>Tanggal Order:</b> ${tanggal_order.value}</p>
+    <p><b>Nama Pemesan:</b> ${nama_pemesan.value}</p>
+    <p><b>Supplier:</b> ${supplierText}</p>
+    <p><b>Tanggal Kirim:</b> ${tanggal_kirim.value}</p>
+    <p><b>Jenis Pembayaran:</b> ${jenis_pembayaran.value}</p>
+    <p><b>Alamat Kirim:</b><br>${alamat.value}</p>
+
+    <hr>
+
+    <table border="1" width="100%" cellpadding="6" style="border-collapse:collapse;">
+      <tr>
+        <th>Barang</th>
+        <th>Qty</th>
+        <th>Harga</th>
+        <th>Subtotal</th>
+        <th>Catatan</th>
+      </tr>
+  `;
+
+  let total = 0;
+  barangList.forEach(b => {
+    total += b.sub;
+    html += `
+      <tr>
+        <td>${b.nama}</td>
+        <td>${b.q} ${b.satuan}</td>
+        <td>${formatAngka(b.h)}</td>
+        <td>${formatAngka(b.sub)}</td>
+        <td>${b.note || "-"}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+    <tr>
+      <td colspan="3" align="right"><b>Total</b></td>
+      <td colspan="2"><b>${formatAngka(total)}</b></td>
+    </tr>
+    </table>
+  `;
+
+  previewContent.innerHTML = html;
+}
+
+// ================= TOMBOL MODAL =================
+const closePreview = document.getElementById("closePreview");
+
+closePreview.onclick = () => {
+  previewModal.style.display = "none";
+};
+
+btnBatal.onclick = () => {
+  previewModal.style.display = "none";
+};
+
+btnLanjut.onclick = () => {
+  previewModal.style.display = "none";
+  simpanPO();
+};
+
+previewModal.onclick = e => {
+  if (e.target === previewModal) {
+    previewModal.style.display = "none";
+  }
+};
 </script>
 {% endblock %}
