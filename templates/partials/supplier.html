@@ -88,7 +88,19 @@ input:checked + .slider:before {
 </style>
 
 <h2>📦 Data Supplier</h2>
-
+<div id="supplierSummary" style="margin-bottom:12px;font-size:14px;">
+  Total: <b id="totalSupplier">0</b> |
+  Aktif: <b style="color:#2ecc71" id="totalAktif">0</b> |
+  Non Aktif: <b style="color:#e74c3c" id="totalNonaktif">0</b>
+</div>
+<div style="margin-bottom:12px;">
+  <input
+    type="text"
+    id="searchSupplier"
+    placeholder="Cari supplier..."
+    style="padding:8px 12px;width:100%;max-width:300px;border-radius:6px;border:1px solid #ccc;font-size:14px;"
+  >
+</div>
 <div class="table-wrapper">
 <table class="table-supplier">
   <thead>
@@ -114,14 +126,18 @@ input:checked + .slider:before {
 
 <td>
   {% if s.status == 1 %}
-    <a href="/supplier/toggle/{{ s.id_supplier }}/0"
-       style="color:#2ecc71;font-weight:bold;text-decoration:none">
+    <a href="/supplier/toggle/{{ s.id_supplier }}/0" class="link-status"
+       data-id="{{ s.id_supplier }}" data-status="1"
+       onclick="return toggleStatus(event, this)"
+       style="color:#2ecc71;font-weight:bold;text-decoration:none;cursor:pointer">
        ● Aktif
     </a>
   {% else %}
-    <a href="/supplier/toggle/{{ s.id_supplier }}/1"
-       style="color:#e74c3c;font-weight:bold;text-decoration:none">
-       ● Non Aktif
+    <a href="/supplier/toggle/{{ s.id_supplier }}/1" class="link-status"
+       data-id="{{ s.id_supplier }}" data-status="0"
+       onclick="return toggleStatus(event, this)"
+       style="color:#e74c3c;font-weight:bold;text-decoration:none;cursor:pointer">
+      ● Non Aktif
     </a>
   {% endif %}
 </td>
@@ -140,31 +156,118 @@ input:checked + .slider:before {
 </div>
 
 <script>
-function ubahStatus(el,id){
-  let status = el.checked ? 1 : 0;
+function toggleStatus(ev, el) {
+  ev.preventDefault();
+  var id = el.getAttribute("data-id");
+  var currentStatus = parseInt(el.getAttribute("data-status"), 10);
+  var newStatus = currentStatus === 1 ? 0 : 1;
+  var url = "/supplier/toggle/" + id + "/" + newStatus;
 
-  fetch("/supplier/status",{
-    method:"POST",
-    headers:{ "Content-Type":"application/x-www-form-urlencoded" },
-    body:`id_supplier=${id}&status=${status}`
-  })
-  .then(res => res.json())
-  .then(res => {
-    if(!res.success){
-      alert(res.message || "Gagal update status");
-      el.checked = !el.checked; // rollback toggle
-    } else {
-      // optional: reload row style
-      el.closest("tr").classList.toggle("nonaktif", status === 0);
-    }
-  })
-  .catch(()=>{
-    alert("Koneksi server error");
-    el.checked = !el.checked;
-  })
+  fetch(url)
+    .then(function(res) {
+      if (!res.ok) throw new Error("Gagal update status");
+      // Update tampilan langsung tanpa reload
+      el.setAttribute("data-status", String(newStatus));
+      el.href = "/supplier/toggle/" + id + "/" + (newStatus === 1 ? 0 : 1);
+      if (newStatus === 1) {
+        el.textContent = "● Aktif";
+        el.style.color = "#2ecc71";
+      } else {
+        el.textContent = "● Non Aktif";
+        el.style.color = "#e74c3c";
+      }
+      el.closest("tr").classList.toggle("nonaktif", newStatus === 0);
+    })
+    .catch(function() {
+      alert("Koneksi server error. Coba lagi.");
+    });
+  return false;
 }
+
 </script>
+<script>
+(function initSupplierSearch() {
+  const input = document.getElementById("searchSupplier");
+  const tbody = document.querySelector(".table-supplier tbody");
 
+  if (!input || !tbody) return;
 
+  input.addEventListener("input", function () {
+    const keyword = this.value.toLowerCase().trim();
+    const rows = tbody.querySelectorAll("tr");
+    let hasVisible = false;
+
+    rows.forEach(row => {
+      // Skip row "data belum ada"
+      if (row.querySelector(".empty")) return;
+
+      const text = row.innerText.toLowerCase();
+      const match = text.includes(keyword);
+
+      row.style.display = match ? "" : "none";
+      if (match) hasVisible = true;
+    });
+
+    // pesan kosong
+    let emptyRow = tbody.querySelector(".empty-search");
+    if (!hasVisible && rows.length > 0) {
+      if (!emptyRow) {
+        emptyRow = document.createElement("tr");
+        emptyRow.className = "empty-search";
+        emptyRow.innerHTML = `<td colspan="6" class="empty">❌ Data tidak ditemukan</td>`;
+        tbody.appendChild(emptyRow);
+      }
+    } else if (emptyRow) {
+      emptyRow.remove();
+    }
+  });
+})();
+</script>
+<script>
+(function initSupplierSummary() {
+
+  function updateSupplierSummary() {
+    const rows = document.querySelectorAll(".table-supplier tbody tr");
+    let total = 0, aktif = 0, nonaktif = 0;
+
+    rows.forEach(row => {
+      // abaikan row "data belum ada"
+      if (row.querySelector(".empty")) return;
+
+      total++;
+      if (row.classList.contains("nonaktif")) {
+        nonaktif++;
+      } else {
+        aktif++;
+      }
+    });
+
+    document.getElementById("totalSupplier").innerText = total;
+    document.getElementById("totalAktif").innerText = aktif;
+    document.getElementById("totalNonaktif").innerText = nonaktif;
+  }
+
+  // 🔥 HITUNG LANGSUNG SAAT HALAMAN DIBUKA
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", updateSupplierSummary);
+  } else {
+    updateSupplierSummary();
+  }
+
+  // 🔁 update setelah toggle status
+  const originalToggle = toggleStatus;
+  window.toggleStatus = function(ev, el) {
+    originalToggle(ev, el);
+    setTimeout(updateSupplierSummary, 150);
+  };
+
+  // 🔍 update saat search (kalau search ada)
+  const searchInput = document.getElementById("searchSupplier");
+  if (searchInput) {
+    searchInput.addEventListener("input", updateSupplierSummary);
+  }
+
+})();
+</script>
 
 {% endblock %}
