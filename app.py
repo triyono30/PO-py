@@ -4,6 +4,18 @@ from datetime import date
 
 app = Flask(__name__)
 
+
+def update_status(id_po, from_status, to_status):
+    db = koneksi()
+    cur = db.cursor()
+    cur.execute("""
+        UPDATE po
+        SET status_order=%s
+        WHERE id_po=%s AND status_order=%s
+    """, (to_status, id_po, from_status))
+    ok = cur.rowcount
+    db.commit()
+    return ok
 # ================= AUTO ID PO =================
 def generate_id_po(id_supplier):
     db = koneksi()
@@ -43,7 +55,7 @@ def dashboard_detail(jenis):
         
 
     elif jenis == "barang":
-        cursor.execute("SELECT b.*, s.nama_supplier FROM barang b JOIN supplier s ON b.id_supplier = s.id_supplier ORDER BY b.nama_barang")
+        cursor.execute("SELECT b.*, s.nama_suppliers.status AS status_supplier FROM barang b JOIN supplier s ON b.id_supplier = s.id_supplier ORDER BY b.nama_barang""")
         data = cursor.fetchall()
         # Ambil data suppliers untuk dropdown
         cursor.execute("SELECT DISTINCT nama_supplier FROM supplier ORDER BY nama_supplier")
@@ -51,8 +63,56 @@ def dashboard_detail(jenis):
         return render_template("partials/barang.html", data=data, suppliers=suppliers)
 
     elif jenis == "po":
-        cursor.execute("SELECT id_po, tanggal_order FROM purchase_order")
+        # Detail PO: pakai desain seperti supplier (partials/po_status.html)
+        cursor.execute("""
+            SELECT po.id_po,
+                   po.tanggal_order,
+                    po.tanggal_kirim,
+                   supplier.nama_supplier AS supplier,
+                   po.total,
+                   po.status_order AS status_terakhir
+            FROM po
+                
+            JOIN supplier ON po.id_supplier = supplier.id_supplier
+            ORDER BY po.tanggal_order DESC, po.id_po DESC
+        """)
         data = cursor.fetchall()
+
+        
+        today = date.today()
+
+        for p in data:
+            if p["status_terakhir"] == "SELESAI":
+                p["sisa_hari"] = "Selesai"
+                p["sisa_class"] = "sisa-selesai"
+
+            elif p["tanggal_kirim"]:
+                delta = (p["tanggal_kirim"] - today).days
+
+                if delta > 0:
+                    p["sisa_hari"] = f"{delta} hari lagi"
+                    p["sisa_class"] = "sisa-aman"
+                elif delta == 0:
+                    p["sisa_hari"] = "Hari ini"
+                    p["sisa_class"] = "sisa-warning"
+                else:
+                    p["sisa_hari"] = f"Terlambat {abs(delta)} hari"
+                    p["sisa_class"] = "sisa-danger"
+            else:
+                p["sisa_hari"] = "-"
+
+
+        # hitung ringkasan untuk ditampilkan di atas tabel
+        total_po = len(data)
+        total_nilai = sum([float(row["total"] or 0) for row in data]) if data else 0.0
+        cursor.close()
+        db.close()
+        return render_template(
+            "partials/po_status.html",
+            data=data,
+            total_po=total_po,
+            total_nilai=total_nilai,
+        )
 
     else:
         cursor.close()
@@ -61,7 +121,7 @@ def dashboard_detail(jenis):
 
     cursor.close()
     db.close()
-    return data  # atau render_template(...)
+    return data  # fallback untuk jenis lain jika ditambah nanti
 
 
 #=====================update status suplier=========================
@@ -120,18 +180,21 @@ def barang_list():
     cur = db.cursor(dictionary=True)
 
     cur.execute("""
-        SELECT b.*, s.nama_supplier
-        FROM barang b
-        JOIN supplier s ON b.id_supplier = s.id_supplier
-        ORDER BY b.nama_barang
-    """)
+    SELECT 
+        b.*,
+        s.nama_supplier,
+        s.status AS status_supplier
+    FROM barang b
+    JOIN supplier s ON b.id_supplier = s.id_supplier
+    ORDER BY b.nama_barang
+""")
 
     data = cur.fetchall()
-    
-    # Ambil data suppliers untuk dropdown
+
+ # Ambil data suppliers untuk dropdown
     cur.execute("SELECT DISTINCT nama_supplier FROM supplier ORDER BY nama_supplier")
     suppliers = cur.fetchall()
-    
+
     cur.close()
     db.close()
 
@@ -179,7 +242,7 @@ def get_barang(id_supplier):
     db = koneksi()
     cur = db.cursor()
     cur.execute("""
-        SELECT id_barang, nama_barang, harga, stok, spek
+        SELECT id_barang, nama_barang, harga, stok, spek, satuan
         FROM barang
         WHERE id_supplier = %s
     """, (id_supplier,))
@@ -194,7 +257,8 @@ def get_barang(id_supplier):
                 "nama": b[1],
                 "harga": float(b[2]),
                 "stok": b[3],
-                "spek": b[4] or ""
+                "spek": b[4] or "",
+                "satuan": b[5]
             } for b in data
         ]
     })
@@ -221,131 +285,266 @@ def get_po_terbaru():
     ]
     return jsonify(result)
 
-# ================= SIMPAN PO =================
-@app.route("/simpan_po", methods=["POST"])
-def simpan_po():
-    data = request.form
+
+# ================= FORM TOTAL PO + STATUS TERAKHIR =================
+@app.route("/po_status")
+def po_status():
     db = koneksi()
-    cur = db.cursor()
+    cur = db.cursor(dictionary=True)
 
-    id_supplier   = data["id_supplier"]
-    tanggal_order = data.get("tanggal_order", date.today().strftime("%Y-%m-%d"))
-    tanggal_kirim = data.get("tanggal_kirim")
-    nama_pemesan  = data.get("nama_pemesan", "")
-    alamat_kirim  = data.get("alamat_kirim", "")
-
-    barang_ids = request.form.getlist("id_barang_list")
-    qty_list   = request.form.getlist("qty_list")
-
-    if not barang_ids:
-        # ambil supplier untuk render kembali
-        cur.execute("SELECT id_supplier, nama_supplier FROM supplier")
-        supplier = cur.fetchall()
-        cur.close()
-        db.close()
-        return render_template("form_po.html",
-            supplier=supplier,
-            tanggal_order=tanggal_order,
-            form_data={
-                "id_supplier": id_supplier,
-                "tanggal_kirim": tanggal_kirim,
-                "nama_pemesan": nama_pemesan,
-                "alamat_kirim": alamat_kirim,
-                "barang_ids": barang_ids,
-                "qty_list": qty_list
-            },
-            error="Harap tambahkan minimal 1 barang!"
-        )
-
-    # AUTO ID PO
-    id_po = generate_id_po(id_supplier)
-
-    # Hitung total
-    total = 0
-    for i in range(len(barang_ids)):
-        cur.execute("SELECT harga FROM barang WHERE id_barang=%s", (barang_ids[i],))
-        harga = float(cur.fetchone()[0])
-        subtotal = harga * int(qty_list[i])
-        total += subtotal
-
-    # Insert header
+    # Ambil semua PO dengan status terakhir (menggunakan kolom status_order)
     cur.execute("""
-        INSERT INTO po (id_po, tanggal_order, tanggal_kirim, id_supplier, nama_pemesan, alamat_kirim, total)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-    """, (id_po, tanggal_order, tanggal_kirim, id_supplier, nama_pemesan, alamat_kirim, total))
+        SELECT po.id_po,
+            po.tanggal_order,
+            po.tanggal_kirim,
+            supplier.nama_supplier AS supplier,
+            po.total,
+            po.status_order AS status_terakhir
+        FROM po
+        JOIN supplier ON po.id_supplier = supplier.id_supplier
+        ORDER BY po.tanggal_order DESC, po.id_po DESC
+    """)
 
-    # Insert detail dan update stok
-    for i in range(len(barang_ids)):
-        barang_id = barang_ids[i]
-        q = int(qty_list[i])
-        cur.execute("SELECT harga FROM barang WHERE id_barang=%s", (barang_id,))
-        harga = float(cur.fetchone()[0])
-        subtotal = harga * q
-        cur.execute("""
-            INSERT INTO po_detail (id_po, id_barang, qty, harga, subtotal)
-            VALUES (%s,%s,%s,%s,%s)
-        """, (id_po, barang_id, q, harga, subtotal))
-        cur.execute("UPDATE barang SET stok = stok + %s WHERE id_barang=%s", (q, barang_id))
+    data = cur.fetchall()
+    today = date.today()
 
-    db.commit()
+    for p in data:
+        tgl_kirim = p.get("tanggal_kirim")
+        if tgl_kirim:
+            delta = (tgl_kirim - today).days
+            if delta > 0:
+                p["sisa_hari"] = f"{delta} hari lagi"
+            elif delta == 0:
+                p["sisa_hari"] = "Hari ini"
+            else:
+                p["sisa_hari"] = f"Terlambat {abs(delta)} hari"
+        else:
+            p["sisa_hari"] = "-"
+
+    # Hitung ringkasan
+    cur.execute("SELECT COUNT(*), IFNULL(SUM(total),0) FROM po")
+    row = cur.fetchone()
+    total_po = row[0]
+    total_nilai = float(row[1] or 0)
+
     cur.close()
     db.close()
-    return redirect("/po?success=1")
+
+    return render_template(
+        "partials/po_status.html",
+        data=data,
+        total_po=total_po,
+        total_nilai=total_nilai,
+    )
+
+# ================= SIMPAN PO =================
 @app.route("/simpan_po_ajax", methods=["POST"])
 def simpan_po_ajax():
     data = request.form
     db = koneksi()
     cur = db.cursor()
 
-    id_supplier   = data.get("id_supplier")
-    tanggal_order = date.today().strftime("%Y-%m-%d")
-    tanggal_kirim = data.get("tanggal_kirim")
-    nama_pemesan  = data.get("nama_pemesan")
-    alamat_kirim  = data.get("alamat_kirim")
+    try:
+        id_supplier        = data.get("id_supplier")
+        tanggal_order      = date.today().strftime("%Y-%m-%d")
+        tanggal_kirim      = data.get("tanggal_kirim")
+        nama_pemesan       = data.get("nama_pemesan")
+        alamat_kirim       = data.get("alamat_kirim")
+        jenis_pembayaran   = data.get("jenis_pembayaran")
 
-    barang_ids = request.form.getlist("id_barang_list")
-    qty_list   = request.form.getlist("qty_list")
+        barang_ids = request.form.getlist("id_barang_list")
+        qty_list   = request.form.getlist("qty_list")
+        note_list  = request.form.getlist("note_list")   # ✅ PENTING
 
-    if not barang_ids:
+        if not barang_ids:
+            return jsonify({"status":"error","message":"Harap tambahkan minimal 1 barang!"})
+
+        id_po = generate_id_po(id_supplier)
+
+        total = 0
+        harga_cache = []
+
+        for i in range(len(barang_ids)):
+            cur.execute("SELECT harga FROM barang WHERE id_barang=%s", (barang_ids[i],))
+            harga = float(cur.fetchone()[0])
+            harga_cache.append(harga)
+            total += harga * int(qty_list[i])
+
+        status_order = "DRAF"
+
+        # ✅ INSERT PO (HEADER)
+        cur.execute("""
+            INSERT INTO po
+            (id_po, tanggal_order, tanggal_kirim, id_supplier,
+             nama_pemesan, alamat_kirim, jenis_pembayaran,
+             total, status_order)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            id_po, tanggal_order, tanggal_kirim,
+            id_supplier, nama_pemesan,
+            alamat_kirim, jenis_pembayaran,
+            total, status_order
+        ))
+
+        # ✅ INSERT DETAIL + KET
+        for i in range(len(barang_ids)):
+            barang_id = barang_ids[i]
+            q = int(qty_list[i])
+            harga = harga_cache[i]
+            subtotal = harga * q
+            ket = note_list[i] if i < len(note_list) else ""
+
+            cur.execute("""
+                INSERT INTO po_detail
+                (id_po, id_barang, qty, harga, subtotal, ket)
+                VALUES (%s,%s,%s,%s,%s,%s)
+            """, (
+                id_po, barang_id, q, harga, subtotal, ket
+            ))
+
+           # cur.execute("""
+            #    UPDATE barang
+             #   SET stok = stok - %s
+              #  WHERE id_barang=%s AND stok >= %s
+            #""", (q, barang_id, q))
+
+            if cur.rowcount == 0:
+                db.rollback()
+                return jsonify({
+                    "status":"error",
+                    "message":f"Stok tidak cukup untuk barang {barang_id}"
+                })
+
+        db.commit()
+        return jsonify({"status":"success","message":"PO berhasil disimpan!"})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"status":"error","message":str(e)})
+
+    finally:
         cur.close()
         db.close()
-        return jsonify({"status":"error","message":"Harap tambahkan minimal 1 barang!"})
 
-    # AUTO ID PO
-    id_po = generate_id_po(id_supplier)
+@app.route("/po_detail_ajax/<id_po>")
+def po_detail_ajax(id_po):
+    db = koneksi()
+    cur = db.cursor(dictionary=True)
 
-    # Hitung total
-    total = 0
-    for i in range(len(barang_ids)):
-        cur.execute("SELECT harga FROM barang WHERE id_barang=%s", (barang_ids[i],))
-        harga = float(cur.fetchone()[0])
-        subtotal = harga * int(qty_list[i])
-        total += subtotal
-
-    # Insert header
+    # HEADER PO
     cur.execute("""
-        INSERT INTO po (id_po, tanggal_order, tanggal_kirim, id_supplier, nama_pemesan, alamat_kirim, total)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-    """, (id_po, tanggal_order, tanggal_kirim, id_supplier, nama_pemesan, alamat_kirim, total))
+        SELECT 
+            p.id_po,
+            p.tanggal_order,
+            p.tanggal_kirim,
+            p.nama_pemesan,
+            p.alamat_kirim,
+            p.jenis_pembayaran,
+            p.status_order,
+            p.total,
+            s.nama_supplier
+        FROM po p
+        LEFT JOIN supplier s ON p.id_supplier = s.id_supplier
+        WHERE p.id_po = %s
+    """, (id_po,))
+    po = cur.fetchone()
 
-    # Insert detail dan update stok
-    for i in range(len(barang_ids)):
-        barang_id = barang_ids[i]
-        q = int(qty_list[i])
-        cur.execute("SELECT harga FROM barang WHERE id_barang=%s", (barang_id,))
-        harga = float(cur.fetchone()[0])
-        subtotal = harga * q
+    if not po:
+        return "<p>❌ PO tidak ditemukan</p>"
+
+    # DETAIL BARANG
+    cur.execute("""
+        SELECT 
+            b.nama_barang,
+            d.qty,
+            b.satuan,
+            d.harga,
+            d.subtotal,
+            d.ket
+        FROM po_detail d
+        JOIN barang b ON d.id_barang = b.id_barang
+        WHERE d.id_po = %s
+    """, (id_po,))
+    detail = cur.fetchall()
+
+    return render_template(
+        "po_detail.html",
+        po=po,
+        detail=detail
+    )
+
+
+
+@app.route("/po/order/<id_po>", methods=["POST"])
+def order_po(id_po):
+    db = koneksi()
+    cur = db.cursor()
+
+    # ambil detail
+    cur.execute("""
+        SELECT id_barang, qty FROM po_detail WHERE id_po=%s
+    """, (id_po,))
+    items = cur.fetchall()
+
+    # kurangi stok
+    for barang_id, qty in items:
         cur.execute("""
-            INSERT INTO po_detail (id_po, id_barang, qty, harga, subtotal)
-            VALUES (%s,%s,%s,%s,%s)
-        """, (id_po, barang_id, q, harga, subtotal))
-        cur.execute("UPDATE barang SET stok = stok + %s WHERE id_barang=%s", (q, barang_id))
+            UPDATE barang
+            SET stok = stok - %s
+            WHERE id_barang=%s AND stok >= %s
+        """, (qty, barang_id, qty))
+        if cur.rowcount == 0:
+            db.rollback()
+            return jsonify({
+                "status":"error",
+                "message":f"Stok tidak cukup untuk barang {barang_id}"
+            })
+
+    # update status
+    cur.execute("""
+        UPDATE po
+        SET status_order='ORDER'
+        WHERE id_po=%s AND status_order='APPROVED'
+    """, (id_po,))
 
     db.commit()
-    cur.close()
-    db.close()
+    return jsonify({"status":"success","message":"PO di-order ke supplier"})
 
-    return jsonify({"status":"success","message":"PO berhasil disimpan..!"})
+@app.route("/po/approve/<id_po>", methods=["POST"])
+def approve_po(id_po):
+    db = koneksi()
+    cur = db.cursor()
+
+    cur.execute("""
+        UPDATE po
+        SET status_order='APPROVED'
+        WHERE id_po=%s AND status_order='AWAITING_APPROVAL'
+    """, (id_po,))
+
+    if cur.rowcount == 0:
+        return jsonify({"status":"error","message":"PO tidak bisa di-approve"})
+
+    db.commit()
+    return jsonify({"status":"success","message":"PO disetujui"})
+
+@app.route("/po/submit/<id_po>", methods=["POST"])
+def submit_po(id_po):
+    db = koneksi()
+    cur = db.cursor()
+
+    cur.execute("""
+        UPDATE po
+        SET status_order = 'AWAITING_APPROVAL'
+        WHERE id_po=%s AND status_order='DRAF'
+    """, (id_po,))
+
+    if cur.rowcount == 0:
+        return jsonify({"status":"error","message":"PO tidak bisa diajukan"})
+
+    db.commit()
+    return jsonify({"status":"success","message":"PO diajukan ke approval"})
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
