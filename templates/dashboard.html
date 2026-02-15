@@ -19,11 +19,7 @@
     <p>{{ total_po }}</p>
   </div>
 
-  <div class="card clickable" data-type="transaksi">
-    <h3>Total Transaksi</h3>
-    <p>Rp {{ '{:,.0f}'.format(total_transaksi) }}</p>
   </div>
-</div>
 
 <hr>
 
@@ -46,7 +42,7 @@ document.querySelectorAll(".card.clickable").forEach(card => {
     fetch(`/dashboard_detail/${type}`)
       .then(res => res.text())
       .then(html => {
-        const container = document.getElementById("detail-content");
+       const container = document.getElementById("detail-content");
         
         // Pisahkan HTML dan script
         const tempDiv = document.createElement('div');
@@ -76,6 +72,14 @@ document.querySelectorAll(".card.clickable").forEach(card => {
           "<span style='color:red'>Gagal memuat data</span>";
       });
   });
+});
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const poCard = document.querySelector('.card[data-type="po"]');
+  if (poCard) {
+    poCard.click(); // otomatis load detail PO
+  }
 });
 </script>
 
